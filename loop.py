@@ -11,7 +11,8 @@ intents.members = True
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini', encoding='utf-8')
 
-MY_GUILDS = [discord.Object(id=config_ini.getint('GUILD', 'guild_id_ygm'))]
+MY_GUILDS = [discord.Object(id=config_ini.getint('GUILD', 'guild_id_0')),
+             discord.Object(id=config_ini.getint('GUILD', 'guild_id_1'))]
 
 class MyClient(discord.Client):
     def __init__(self, *, intents: discord.Intents):
@@ -130,63 +131,91 @@ def save_weapons_image(weapon_list):
     cv2.imwrite('img/image.png', img_3)
 
 def add_embed_srnwShift(time, stage, weapon):
-    embed = discord.Embed(title = stage, 
+    shiht_time = time[0][5:16] + ' - ' + time[1][5:16]
+    embed = discord.Embed(title = str(shiht_time), 
                           description =  str(weapon[0]) +'\n'+ str(weapon[1]) +'\n'+ 
                           str(weapon[2]) +'\n'+ str(weapon[3]),
                           color = int('0xF63E1D', 16))
-    embed.set_author(name = time, )
+    embed.set_author(name = stage, )
     return embed
 
-@tasks.loop(seconds=10)#20秒毎
+@tasks.loop(seconds=30)#30秒毎
 async def send_message():
+    print('loop_stat')
     url = 'https://api.koukun.jp/splatoon/3/schedules/coop/'
     # 最新のシフトの時刻を取得
     smnw_time_now = request_api(url)['start']
     smnw_time_recorded = ''
-    #print(smnw_time_now)
 
     # txtファイルに記録されているシフトの時刻を取得する
-    with open('changed_shift_check.txt', mode='r') as f:
+    with open('shift_check.txt', mode='r') as f:
         # ファイルの読み込んで変数に代入
         smnw_time_recorded = f.read()
     f.close
 
-    #print(smnw_time_recorded)
-
-    # 取得した最新の時刻と、記録されている時刻が違う場合
+    # 取得した最新の時刻と、記録されている時刻が違う場合(=現在のスケジュールが更新された場合)
     if smnw_time_now != smnw_time_recorded:
-        print('==')
         # apiから情報を取得
-        time =[request_api(url)['start'], request_api(url)['end']]
+        time =[request_api(url)['start'].replace('-', '/'), request_api(url)['end'].replace('-', '/')]
         stage = request_api(url)['stage']
         weapon_list = []
         weapons_data = request_api(url)['weapons']
         for wepon in weapons_data:
             weapon_list.append(wepon['name'])
-
+        
         # メッセージを送信
         embed = add_embed_srnwShift(time, stage, weapon_list)
         save_weapons_image(weapon_list)
         fname="image.png "
-        image_file = discord.File(fp=f"C:/Users/N/Documents/GitHub/salmonrunnw-schedule-bot/img/image.png ",filename=fname) 
+        print('a')
+        # ローカルファイルのアドレスに注意
+        image_file = discord.File(fp=f"C:/Users/User/Documents/GitHub/salmonrunnw-schedule-bot/img/image.png ",filename=fname) 
         embed.set_image(url="attachment://image.png") 
         embed.set_thumbnail(url=f"{set_stage_name(stage)}")
-        guild = guild = discord.utils.find(lambda g: g.id == config_ini.getint('GUILD', 'guild_id_ygm'), client.guilds)
-        channel = guild.get_channel(config_ini.getint('CHANNEL', 'channel_id'))
+        
+        guild = discord.utils.find(lambda g: g.id == config_ini.getint('GUILD', 'guild_id_0'), client.guilds)
+        guild_2 = discord.utils.find(lambda g: g.id == config_ini.getint('GUILD', 'guild_id_1'), client.guilds)
+        channel = guild.get_channel(config_ini.getint('CHANNEL', 'channel_id_0'))
+        channel_2 = guild_2.get_channel(config_ini.getint('CHANNEL', 'channel_id_1'))
+
         await channel.send(file=image_file, embed=embed)
-        # ここを書く
-        # # 書き込む
-        # f = open('changed_shift_check.txt', 'a', encoding='UTF-8', newline='\n')
-        # data = str(smnw_time_now)
-        # f.writelines(data)
+        image_file_2 = discord.File(fp=f"C:/Users/User/Documents/GitHub/salmonrunnw-schedule-bot/img/image.png ",filename=fname) 
+        await channel_2.send(file=image_file_2, embed=embed)
+
+        # 書き込む
+        with open('shift_check.txt', 'w', encoding='UTF-8', newline='\n') as f:
+            data = smnw_time_now
+            f.writelines(data)
+        f.close()
     else:
         return
-
-
 
 @client.event
 async def on_ready(): #botログイン完了時に実行
     print('on_ready') 
     send_message.start()
-
+    '''url = 'https://api.koukun.jp/splatoon/3/schedules/coop/'
+    time =[request_api(url)['start'].replace('-', '/'), request_api(url)['end'].replace('-', '/')]
+    stage = request_api(url)['stage']
+    weapon_list = []
+    weapons_data = request_api(url)['weapons']
+    for wepon in weapons_data:
+        weapon_list.append(wepon['name'])
+    
+    # メッセージを送信
+    embed = add_embed_srnwShift(time, stage, weapon_list)
+    save_weapons_image(weapon_list)
+    fname="image.png "
+    # ローカルファイルのアドレスに注意
+    image_file = discord.File(fp=f"C:/Users/User/Documents/GitHub/salmonrunnw-schedule-bot/img/image.png ",filename=fname) 
+    embed.set_image(url="attachment://image.png") 
+    embed.set_thumbnail(url=f"{set_stage_name(stage)}")
+    guild = discord.utils.find(lambda g: g.id == config_ini.getint('GUILD', 'guild_id_0'), client.guilds)
+    guild_2 = discord.utils.find(lambda g: g.id == config_ini.getint('GUILD', 'guild_id_1'), client.guilds)
+    channel = guild.get_channel(config_ini.getint('CHANNEL', 'channel_id_0'))
+    channel_2 = guild_2.get_channel(config_ini.getint('CHANNEL', 'channel_id_1'))
+    
+    await channel.send(file=image_file, embed=embed)
+    image_file_2 = discord.File(fp=f"C:/Users/User/Documents/GitHub/salmonrunnw-schedule-bot/img/image.png ",filename=fname) 
+    await channel_2.send(file=image_file_2, embed=embed)'''
 client.run(config_ini.get('TOKEN', 'token'))  
